@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8080:8080"
+    environment:
+      DB_HOST: db                # Backend will connect to the "db" service
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: 123456
+      DB_NAME: react
+    depends_on:
+      db:
+        condition: service_healthy  # Ensure DB is fully ready before backend starts
+    networks:
+      - react-net
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "5173:5173"  # Vite port for frontend (3000 for CRA)
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: ["npm", "run", "dev"]  # Run React in development mode
+    depends_on:
+      - backend
+    networks:
+      - react-net
+
+  db:
+    image: postgres:latest
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 123456
+      POSTGRES_DB: react   # Ensure this matches the DB_NAME in the backend
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:  # Ensure DB is ready before backend starts
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - react-net
+
+volumes:
+  db_data:
+
+networks:
+  react-net:
+    driver: bridge
